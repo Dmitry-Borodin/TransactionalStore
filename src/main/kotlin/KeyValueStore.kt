@@ -1,60 +1,84 @@
 package org.example
 
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
+
+sealed class Command {
+    data class Set(val key: String, val value: String) : Command()
+    data class Get(val key: String) : Command()
+    data class Delete(val key: String) : Command()
+    data class Count(val value: String) : Command()
+    data object Begin : Command()
+    data object Commit : Command()
+    data object Rollback : Command()
+    data object Exit : Command()
+}
+
 class KeyValueStore {
+    // Lock for thread safety
+    private val lock = ReentrantLock()
+
+    // Thread-safe list of maps representing transactions
     private val dataStack = mutableListOf<MutableMap<String, String>>()
-    private val currentData: MutableMap<String, String>
-        get() = dataStack.last()
 
     init {
-        // Initialize with an empty transaction
         dataStack.add(mutableMapOf())
     }
 
-    // Store the value for a key
-    fun set(key: String, value: String) {
-        currentData[key] = value
+    // Perform a command
+    fun perform(command: Command): Any? {
+        return lock.withLock {
+            when (command) {
+                is Command.Set -> set(command.key, command.value)
+                is Command.Get -> get(command.key)
+                is Command.Delete -> delete(command.key)
+                is Command.Count -> count(command.value)
+                Command.Begin -> begin()
+                Command.Commit -> commit()
+                Command.Rollback -> rollback()
+                Command.Exit -> null
+            }
+        }
     }
 
-    // Return the current value for a key
-    fun get(key: String): String? {
-        return currentData[key]
+    private fun set(key: String, value: String) {
+        currentData()[key] = value
     }
 
-    // Remove the entry for a key
-    fun delete(key: String) {
-        currentData.remove(key)
+    private fun get(key: String): String? {
+        return currentData()[key]
     }
 
-    // Return the number of keys that have the given value
-    fun count(value: String): Int {
-        return currentData.values.count { it == value }
+    private fun delete(key: String) {
+        currentData().remove(key)
     }
 
-    // Start a new transaction
-    fun begin() {
-        // Push a copy of the current state onto the stack
-        dataStack.add(currentData.toMutableMap())
+    private fun count(value: String): Int {
+        return currentData().values.count { it == value }
     }
 
-    // Commit the current transaction
-    fun commit(): Boolean {
+    private fun begin() {
+        dataStack.add(currentData().toMutableMap())
+    }
+
+    private fun commit(): Boolean {
         return if (dataStack.size > 1) {
-            // Merge the current transaction into the previous one
-            val completedTransaction = dataStack.removeAt(dataStack.size - 1)
-            dataStack[dataStack.size - 1].putAll(completedTransaction)
+            dataStack[dataStack.lastIndex - 1] = dataStack.last()
+            dataStack.removeAt(dataStack.lastIndex)
             true
         } else {
             false
         }
     }
 
-    // Revert to the state prior to BEGIN call
-    fun rollback(): Boolean {
+    private fun rollback(): Boolean {
         return if (dataStack.size > 1) {
-            dataStack.removeAt(dataStack.size - 1)
+            dataStack.removeAt(dataStack.lastIndex)
             true
         } else {
             false
         }
     }
+
+    private fun currentData(): MutableMap<String, String> = dataStack.last()
 }
