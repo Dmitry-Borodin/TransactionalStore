@@ -32,7 +32,6 @@ class KeyValueStore {
 
     private val rwLock = ReentrantReadWriteLock()
 
-    // Thread-safe list of maps representing transactions
     private val dataStack = mutableListOf<MutableMap<String, String>>()
 
     init {
@@ -71,11 +70,12 @@ class KeyValueStore {
     }
 
     private fun get(key: String): String? {
-        return currentData()[key]
+        return currentData()[key] ?: "value for key $key not found"
     }
 
-    private fun delete(key: String) {
-        currentData().remove(key)
+    private fun delete(key: String): Boolean {
+        val result = currentData().remove(key)
+        return result != null
     }
 
     private fun count(value: String): Int {

@@ -26,7 +26,7 @@ fun main() {
         }
 
         val result = kvStore.perform(command)
-        if (result != null) {
+        if (result != null && result != Unit) {
             println(result)
         }
     }
