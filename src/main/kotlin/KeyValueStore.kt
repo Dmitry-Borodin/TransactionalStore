@@ -1,7 +1,8 @@
 package org.example
 
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.withLock
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
+import kotlin.concurrent.write
 
 sealed class Command {
     data class Set(val key: String, val value: String) : Command()
@@ -12,11 +13,24 @@ sealed class Command {
     data object Commit : Command()
     data object Rollback : Command()
     data object Exit : Command()
+
+     companion object {
+        fun possibleCommands() = listOf(
+            "SET <key> <value>",
+            "GET <key>",
+            "DELETE <key>",
+            "COUNT <value>",
+            "BEGIN",
+            "COMMIT",
+            "ROLLBACK",
+            "EXIT"
+        )
+    }
 }
 
 class KeyValueStore {
-    // Lock for thread safety
-    private val lock = ReentrantLock()
+
+    private val rwLock = ReentrantReadWriteLock()
 
     // Thread-safe list of maps representing transactions
     private val dataStack = mutableListOf<MutableMap<String, String>>()
@@ -25,19 +39,30 @@ class KeyValueStore {
         dataStack.add(mutableMapOf())
     }
 
-    // Perform a command
     fun perform(command: Command): Any? {
-        return lock.withLock {
-            when (command) {
-                is Command.Set -> set(command.key, command.value)
-                is Command.Get -> get(command.key)
-                is Command.Delete -> delete(command.key)
-                is Command.Count -> count(command.value)
-                Command.Begin -> begin()
-                Command.Commit -> commit()
-                Command.Rollback -> rollback()
-                Command.Exit -> null
-            }
+        return when (command) {
+            is Command.Get, is Command.Count -> rwLock.read { executeRead(command) }
+            else -> rwLock.write { executeWrite(command) }
+        }
+    }
+
+    private fun executeRead(command: Command): Any? {
+        return when (command) {
+            is Command.Get -> get(command.key)
+            is Command.Count -> count(command.value)
+            else -> throw IllegalArgumentException("Invalid read command")
+        }
+    }
+
+    private fun executeWrite(command: Command): Any? {
+        return when (command) {
+            is Command.Set -> set(command.key, command.value)
+            is Command.Delete -> delete(command.key)
+            Command.Begin -> begin()
+            Command.Commit -> commit()
+            Command.Rollback -> rollback()
+            Command.Exit -> null
+            else -> throw IllegalArgumentException("Invalid write command")
         }
     }
 

@@ -11,7 +11,14 @@ fun main() {
     while (true) {
         print("> ")
         val input = scanner.nextLine().trim().split(" ")
-        val command = parseCommand(input)
+        val command = try {
+            parseCommand(input)
+        } catch (e: IllegalArgumentException) {
+            println("Error: ${e.message}")
+            println("Possible commands are:")
+            Command.possibleCommands().forEach { println(it) }
+            continue
+        }
 
         if (command is Command.Exit) {
             println("Exiting...")
