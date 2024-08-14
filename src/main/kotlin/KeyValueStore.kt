@@ -40,28 +40,14 @@ class KeyValueStore {
 
     fun perform(command: Command): Any? {
         return when (command) {
-            is Command.Get, is Command.Count -> rwLock.read { executeRead(command) }
-            else -> rwLock.write { executeWrite(command) }
-        }
-    }
-
-    private fun executeRead(command: Command): Any? {
-        return when (command) {
             is Command.Get -> get(command.key)
             is Command.Count -> count(command.value)
-            else -> throw IllegalArgumentException("Invalid read command")
-        }
-    }
-
-    private fun executeWrite(command: Command): Any? {
-        return when (command) {
             is Command.Set -> set(command.key, command.value)
             is Command.Delete -> delete(command.key)
             Command.Begin -> begin()
             Command.Commit -> commit()
             Command.Rollback -> rollback()
             Command.Exit -> null
-            else -> throw IllegalArgumentException("Invalid write command")
         }
     }
 

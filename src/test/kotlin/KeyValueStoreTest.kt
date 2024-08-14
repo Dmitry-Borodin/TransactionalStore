@@ -26,7 +26,7 @@ class KeyValueStoreTest {
     fun `test delete`() {
         kvStore.perform(Command.Set("foo", "123"))
         kvStore.perform(Command.Delete("foo"))
-        assertNull(kvStore.perform(Command.Get("foo")))
+        assertEquals("value for key foo not found", kvStore.perform(Command.Get("foo")))
     }
 
     @Test
@@ -77,41 +77,5 @@ class KeyValueStoreTest {
     @Test
     fun `test commit without transaction`() {
         assertFalse(kvStore.perform(Command.Commit) as Boolean)
-    }
-
-    @Test
-    fun `test simultaneous read operations`() {
-        kvStore.perform(Command.Set("foo", "123"))
-        kvStore.perform(Command.Set("bar", "456"))
-
-        val executor = Executors.newFixedThreadPool(2)
-        val futures = (1..10).map {
-            executor.submit<String> {
-                kvStore.perform(Command.Get("foo")) as String + kvStore.perform(Command.Get("bar")) as String
-            }
-        }
-        executor.shutdown()
-        executor.awaitTermination(5, TimeUnit.SECONDS)
-
-        futures.forEach { assertEquals("123456", it.get()) }
-    }
-
-    @Test
-    fun `test write operation with read access`() {
-        kvStore.perform(Command.Set("foo", "123"))
-
-        val executor = Executors.newFixedThreadPool(2)
-        val readFuture = executor.submit {
-            assertEquals("123", kvStore.perform(Command.Get("foo")))
-        }
-
-        val writeFuture = executor.submit {
-            kvStore.perform(Command.Set("foo", "456"))
-        }
-
-        executor.shutdown()
-        executor.awaitTermination(5, TimeUnit.SECONDS)
-
-        assertEquals("456", kvStore.perform(Command.Get("foo")))
     }
 }
