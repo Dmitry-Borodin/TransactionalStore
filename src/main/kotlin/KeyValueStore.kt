@@ -1,9 +1,5 @@
 package org.example
 
-import java.util.concurrent.locks.ReentrantReadWriteLock
-import kotlin.concurrent.read
-import kotlin.concurrent.write
-
 sealed class Command {
     data class Set(val key: String, val value: String) : Command()
     data class Get(val key: String) : Command()
@@ -29,8 +25,6 @@ sealed class Command {
 }
 
 class KeyValueStore {
-
-    private val rwLock = ReentrantReadWriteLock()
 
     private val dataStack = mutableListOf<MutableMap<String, String>>()
 
